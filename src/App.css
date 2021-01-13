@@ -1,0 +1,31 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+.App-header {
+  background-color: #282c34ff;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.results tr td{
+  border: 0px solid transparent;
+  border-collapse: collapse;
+  transition: 0.2s ease-out;
+}
+
+.results tr:hover td{
+  cursor: pointer;
+  border: 6px inset rgba(255,255,255,10%);
+  border-radius: 10px;
+  transition: 0.2s ease-in;
+}
