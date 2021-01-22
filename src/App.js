@@ -4,6 +4,7 @@ import React, {Component} from 'react'
 import Search from './reverse_index.json'
 const natural = require('natural') 
 
+
 console.log(Object.keys(Search))
 
 let top100 = Search.globalCount
@@ -103,7 +104,7 @@ class App extends React.Component {
                 {results.slice(0,7).map(x => 
                   <tr key={x.title}>
                     <td onClick={() => window.open('https://www.youtube.com/watch?v=' + x.url, '_blank')}>
-                      {x.title}
+                      {`${x.title} (${x.count})`}
                     </td>
                   </tr>)}
               </tbody>
