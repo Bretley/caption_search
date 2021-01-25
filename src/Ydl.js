@@ -1,11 +1,10 @@
-const ydl = require('youtube-dl')
-const fs = require('fs')
-const natural = require('natural')
-const { getSubs } = require('youtube-dl')
-
+import ydl from 'youtube-dl'
+import fs from 'fs'
+import natural from 'natural'
+import { reverse } from 'dns'
 'use strict'
 
-const stops = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself', 'it', 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now']
+const stops = ['talk', 'that', 'anyway', 'anyways', 'let', 'lets', 'that', 'that\'s', 'people', 'go', 'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself', 'it', 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now']
 const options = {
   // Write automatic subtitle file (youtube only)
   output: '%(title).%(ext)s',
@@ -13,7 +12,7 @@ const options = {
   // Downloads all the available subtitles.
   all: false,
   // Subtitle format. YouTube generated subtitles
-  // are available ttml or vtt.
+  // are available ttml or vtt
   format: 'vtt',
   // Languages of subtitles to download, separated by commas.
   lang: 'en',
@@ -21,8 +20,18 @@ const options = {
   cwd: './subtitles_raw',
 }
 
-url = 'https://www.youtube.com/playlist?list=' + 'UU0YvoAYGgdOfySQSLcxtu1w'
-download_raw = () => {
+const maxMin = (arr) => {
+    let max = arr[0]
+    let min = arr[0]
+    for (let i = 0; i < arr.length; i++) {
+        max = arr[i] > max ? arr[i] : max
+        min = arr[i] < min ? arr[i] : min
+    }
+    return [max, min]
+}
+
+let url = 'https://www.youtube.com/playlist?list=' + 'UU0YvoAYGgdOfySQSLcxtu1w'
+let download_raw = () => {
     let x = ydl.exec(url, ['--flat-playlist',
                 '--skip-download',
                 '--dump-json'],
@@ -43,6 +52,7 @@ download_raw = () => {
                       .replace(/.en.vtt/g, ''))
             // filter list based off if urls are in titles in downloaded
             list = list.filter(x => !downloaded.some(y => y.includes(x.url)))
+            console.log(`set to download ${list.length} caption files`)
             list.forEach(x => {
                 ydl.getSubs(x.url, options, (err, files) => {
                     if (err) throw err
@@ -54,25 +64,26 @@ download_raw = () => {
 }
 
 
-insert = (node, str, value) => {
+let insert = (node, str, value, results) => {
     let [x, ...xs] = str
     if (node === undefined || x === undefined) {
         return
     }
     if (node.children[x] === undefined) {
-        node.children[x] = {children: {}, weight: value, ends: false}
+        node.children[x] = {children: {}, weight: value, ends: false, results: null}
     } else {
         node.children[x].weight += value
     }
 
     if (xs.length === 0) {
         node.children[x].ends = true
+        node.children[x].value = results
         return
     }
-    insert(node.children[x], xs, value)
+    insert(node.children[x], xs, value, results)
 }
 
-create_trie = (counts) => {
+let create_trie = (counts, reverseIndex) => {
     let root = {
         value: null,
         children: {},
@@ -80,16 +91,16 @@ create_trie = (counts) => {
         ends: false,
     }
     counts = counts
-        .map(({word, count}) => ({letters: word.split(''), count}))
+        .map(({word, count}) => ({letters: word.split(''), count, results: reverseIndex[word]}))
     
-    counts.forEach(({letters, count}) => 
-        insert(root, letters, count)
+    counts.forEach(({letters, count, results}) => 
+        insert(root, letters, count, results)
     )
     
     return root
 }
 
-parse_files = () => {
+let parse_files = () => {
     let subtitlesDisk = fs.readdirSync('./subtitles_raw')
     let info = JSON.parse(fs.readFileSync('./info.json'))
     info = info.map(x => {
@@ -104,6 +115,7 @@ parse_files = () => {
 
     let counts = []
     info.forEach((x, i) => {
+        let title = fixed_names[i]
         let file = String(fs.readFileSync('.\\subtitles_raw\\' + x.location))
         // formatting of the actual vtt file
         file = file
@@ -113,55 +125,88 @@ parse_files = () => {
             .split('\n')
             .filter(x => x !== '\n' && x !== ' ' & x !== '')
         
-        // duplication of lines thing for no fucking reason
-        file = [...new Set(file)]
+        // duplication of lines thing for no reason
+        // also add title to index search
+        file = [...new Set(file), title.replace(/'|\.|,/g, '')]
             .reduce((acc, cur) => acc.concat(' ' + cur))
             .toLowerCase()
             .split(' ')
             .filter(x => !stops.includes(x))
             .map(x => natural.PorterStemmer.stem(x))
 
+        let numWords = file.length
         let count = {}
         file.forEach(x => {
             count[x] = (count[x] || 0) + 1
         })
        
-        counts = [...counts, [info[i].title, count, info[i].url]]
+        counts = [...counts, [i, count, numWords]]
     })
     let reverse_index = {}
-    counts.forEach(([title, count_map, url]) => {
+    counts.forEach(([title, count_map, numWords]) => {
         Object.entries(count_map).forEach(([word, count]) => {
-            console.log(url)
-            reverse_index[word] = [...(reverse_index[word] || []), {title, count, url}]
-            console.log(reverse_index[word])
+            reverse_index[word] = [...(reverse_index[word] || []), {title, tf: count / numWords}]
         })
     })
-    Object.entries(reverse_index).forEach(([word, results]) => {
+    Object.entries(reverse_index).forEach(([word, results], i) => {
         results.sort((a,b) => 
-            a.count < b.count ? 1
-            : a.count > b.count ? -1
+            a.tf < b.tf ? 1
+            : a.tf > b.tf ? -1
             : 0
         )
+        reverse_index[word] = results.map(({title, tf}) => ([title, parseInt(tf.toFixed(4).replace('0.', ''))]))
     })
-    let globalCount = []
-    Object.entries(reverse_index).forEach(([word, hits]) => {
-    globalCount.push({
-        word,
-        count: hits.reduce((a,c) => a + c.count, 0)})
-    })
-    globalCount.sort((a,b) => 
-        a.count > b.count ? -1 : 
-        a.count < b.count ? 1 :
-        0)
+    /*
+    let t = Object.values(reverse_index)
+                .reduce((a,c) => a.concat(c), [])
+                .map(x => x[1])
+                .sort((a, b) => a - b)
+    let t = Object.entries(reverse_index)
+            .reduce((a,[t,c]) => [...a, [t,c.length]], [])
+            .filter(([,c]) => c > info.length - 50)
     
-    const autoComplete = create_trie(globalCount)
-    fs.writeFileSync('./reverse_index.json', JSON.stringify(
-        {
-            search: reverse_index,
-            globalCount: globalCount,
-            autoComplete
-        }))
+    */
+
+    // numeric compression; lossy*/
+    console.log(info.length)
+    let compTfArr = []
+    Object.entries(reverse_index).forEach(([word, results]) => {
+        results.forEach((res, i) => {
+            let [, tf] = res
+            let index = compTfArr.findIndex(x => x === tf)
+            if (index === -1) {
+                compTfArr.push(tf)
+                reverse_index[word][i][1] = compTfArr.length - 1
+            } else {
+                reverse_index[word][i][1] = index
+            }
+        })
+    })
+
+    //compression of titles
+    ///*
+    //console.log(fixed_names)
+    let uniqueTitles = [...new Set(
+        fixed_names.reduce(
+            (a,c) => a.concat(
+                c.replace(/\.|,/g, '')
+                .split(' ')
+            )
+        , [])
+    )]
+
+    //*/
+
+    fs.writeFileSync('./reverse_index.json', 
+        JSON.stringify({
+            index: reverse_index,
+            numDocs: info.length,
+            titles: fixed_names.map(x => x.replace(/\./g, '')),
+            urls: info.map(x => x.url),
+            scores: compTfArr,
+        })
+    )
 }
 
-download_raw()
+//download_raw()
 parse_files()
